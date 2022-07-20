@@ -1,2 +1,6 @@
-client
+client/react/public
+client/react/test
+
+
+
 node_modules
