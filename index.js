@@ -4,7 +4,6 @@ const { Server } = require("socket.io");
 const http = require("http");
 const server = http.createServer(app);
 const port = process.env.port || 4040;
-let users = [];
 
 const io = new Server(server, {
   cors: {
@@ -14,7 +13,7 @@ const io = new Server(server, {
 });
 
 // when a socket is opened / connected
-
+let users = [""];
 io.on("connection", async (socket) => {
   console.log("client connected!", socket.id);
   socket.on("message", ({ messageText }) => {
@@ -33,17 +32,17 @@ io.on("connection", async (socket) => {
 
     await socket.join(roomNum);
     let tempArr;
-    users.length < 1
-      ? (tempArr = [{ roomNumber: roomNum, username, isHost, score }])
-      : (tempArr = [
-          ...users,
-          { roomNumber: roomNum, username, isHost, score },
-        ]);
-    console.log("users,", users);
-    console.log("temp ar", tempArr);
+    const updatePlayersData = { roomNumber: roomNum, username, isHost, score };
+    users[0] === ""
+      ? (tempArr = [updatePlayersData])
+      : (tempArr = [...users, updatePlayersData]);
+    const playersInThisRoom = tempArr.filter(
+      (user) => user.roomNumber === roomNum
+    );
     users = tempArr;
     console.log("updated users", users);
-    io.to(roomNum).emit("players", { data: users });
+
+    io.to(roomNum).emit("players", { data: playersInThisRoom });
     // get the amount of current users connected.
     let amounts = await io.in(roomNum).fetchSockets();
     console.log(amounts.length);
@@ -53,7 +52,7 @@ io.on("connection", async (socket) => {
     });
 
     console.log(users);
-    io.in(roomNum).emit("players", { data: users });
+    io.in(roomNum).emit("players", { data: playersInThisRoom });
 
     socket.on("message", ({ data }) => {
       console.log("message received:", data);
@@ -69,6 +68,30 @@ io.on("connection", async (socket) => {
     });
     io.to(roomNumber).emit(`player_choice`, { data: "something" });
 
+    socket.on("update_score", (data) => {
+      console.log("this is the update score data", data);
+      let tempScoreArr = [];
+      playersInThisRoom.map((el) => {
+        if (el.username == data.username) {
+          console.log(`updating ${el.username}'s score to ${score}`);
+          el.score = data.score;
+          tempScoreArr.push(el);
+        } else {
+          tempScoreArr.push(el);
+        }
+      });
+      users = tempScoreArr;
+      io.in(roomNum).emit("players", { data: users });
+    });
+
+    socket.on("start_game", () => {
+      io.to(roomNum).emit("start_game");
+    });
+    socket.on("next_question", () => {
+      io.to(roomNum).emit("next_question");
+    });
+    socket.on("setup_quiz", ({ data }) => console.log(data));
+
     // when a user disconnects
 
     socket.on("disconnect", async (socket) => {
@@ -76,11 +99,14 @@ io.on("connection", async (socket) => {
       // update the current amount of users
       amounts = await io.in(roomNum).fetchSockets();
       const updateUsers =
-        users.length > 1 && users.filter((user) => user.username !== username);
+        users.length >= 2
+          ? users.filter((user) => user.username !== username)
+          : [""];
       users = updateUsers;
-      io.to(roomNum).emit("players", { data: users });
+
+      io.to(roomNum).emit("players", { data: playersInThisRoom });
       io.to(roomNum).emit("message", { data: `${username} disconnected.` });
-      // send the new amount of users to every client
+      // send the new amount of users to every client in this room
       io.to(roomNum).emit("players_roundup", { players: amounts.length });
     });
   });
