@@ -1,10 +1,10 @@
 const app = require("./app");
 
-let users = [];
 const { Server } = require("socket.io");
 const http = require("http");
 const server = http.createServer(app);
 const port = process.env.port || 4040;
+let users = [];
 
 const io = new Server(server, {
   cors: {
@@ -28,11 +28,21 @@ io.on("connection", async (socket) => {
   // connect user to chosen room
   socket.on("join_room", async ({ roomNumber, username, isHost, score }) => {
     let name = username;
+
     let roomNum = Number(roomNumber);
 
-    users.push({ roomNumber: roomNum, username, isHost, score });
-
     await socket.join(roomNum);
+    let tempArr;
+    users.length < 1
+      ? (tempArr = [{ roomNumber: roomNum, username, isHost, score }])
+      : (tempArr = [
+          ...users,
+          { roomNumber: roomNum, username, isHost, score },
+        ]);
+    console.log("users,", users);
+    console.log("temp ar", tempArr);
+    users = tempArr;
+    console.log("updated users", users);
     io.to(roomNum).emit("players", { data: users });
     // get the amount of current users connected.
     let amounts = await io.in(roomNum).fetchSockets();
