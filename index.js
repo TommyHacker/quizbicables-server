@@ -1,10 +1,9 @@
 const app = require("./app");
-
+const roomsList = [];
 const { Server } = require("socket.io");
 const http = require("http");
 const server = http.createServer(app);
 const port = process.env.port || 4040;
-
 const io = new Server(server, {
   cors: {
     origin: "http://localhost:8080",
@@ -17,7 +16,7 @@ let users = [""];
 io.on("connection", async (socket) => {
   console.log("client connected!", socket.id);
   socket.on("message", ({ messageText }) => {
-    console.log(messageText);
+    // console.log(messageText);
     socket.emit("message", { data: messageText });
   });
   socket.emit("message", { data: "Connected to socket." });
@@ -27,25 +26,24 @@ io.on("connection", async (socket) => {
   // connect user to chosen room
   socket.on("join_room", async ({ roomNumber, username, isHost, score }) => {
     let name = username;
-
     let roomNum = Number(roomNumber);
-
     await socket.join(roomNum);
+
     let tempArr;
     const updatePlayersData = { roomNumber: roomNum, username, isHost, score };
     users[0] === ""
       ? (tempArr = [updatePlayersData])
       : (tempArr = [...users, updatePlayersData]);
-    const playersInThisRoom = tempArr.filter(
+    let playersInThisRoom = tempArr.filter(
       (user) => user.roomNumber === roomNum
     );
     users = tempArr;
-    console.log("updated users", users);
+    // console.log("updated users", users);
 
     io.to(roomNum).emit("players", { data: playersInThisRoom });
     // get the amount of current users connected.
     let amounts = await io.in(roomNum).fetchSockets();
-    console.log(amounts.length);
+    // console.log(amounts.length);
     io.in(roomNum).emit("players_count", { data: amounts.length });
     io.in(roomNum).emit("message", {
       data: `user ${username} Connected to room ${roomNum}`,
@@ -54,22 +52,17 @@ io.on("connection", async (socket) => {
     console.log(users);
     io.in(roomNum).emit("players", { data: playersInThisRoom });
 
-    socket.on("message", ({ data }) => {
-      console.log("message received:", data);
-      socket.emit("message", { messageText: "hello" });
-    });
-
     socket.on("giveAnswer", ({ data }) => {
-      console.log(data);
+      // console.log(data);
     });
     // get the users answer and send it back to all connected clients.
     socket.on("answer", async (data) => {
-      console.log(data);
+      // console.log(data);
     });
     io.to(roomNumber).emit(`player_choice`, { data: "something" });
 
     socket.on("update_score", (data) => {
-      console.log("this is the update score data", data);
+      // console.log("this is the update score data", data);
       let tempScoreArr = [];
       playersInThisRoom.map((el) => {
         if (el.username == data.username) {
@@ -80,24 +73,49 @@ io.on("connection", async (socket) => {
           tempScoreArr.push(el);
         }
       });
-      users = tempScoreArr;
-      io.in(roomNum).emit("players", { data: users });
+      playersInThisRoom = tempScoreArr;
+      io.to(roomNum).emit("players", { data: users });
     });
 
     socket.on("start_game", () => {
       io.to(roomNum).emit("start_game");
     });
-    socket.on("next_question", () => {
-      io.to(roomNum).emit("next_question");
+
+    socket.on("setup_quiz", ({ data }) => {
+      if (data[0].category) {
+        console.log("setup data", data.length);
+        io.to(roomNum).emit("setup_quiz", { data, howMany: data.length });
+      }
     });
-    socket.on("setup_quiz", ({ data }) => console.log(data));
+
+    socket.on("turn_taken", async ({ data }) => {
+      console.log("turns taken data:", data + 1);
+      console.log("players in this room:", playersInThisRoom.length);
+      io.to(roomNum).emit("turns_logged", { data: data + 1 });
+    });
+    socket.on("reset_turns", () => {
+      io.to(roomNum).emit("reset", { data: 0 });
+    });
+
+    socket.on("next_question", () => {
+      console.log("next question triggered.");
+      io.to(roomNum).emit("increment_question");
+    });
 
     // when a user disconnects
-
+    // questionIndex + 1
+    //     question
+    //     options
+    //
     socket.on("disconnect", async (socket) => {
       console.log("client disconnected");
       // update the current amount of users
       amounts = await io.in(roomNum).fetchSockets();
+      console.log(amounts.length, "left in room");
+      // if (amounts.length == 0) {
+      //   console.log("removing room");
+      //   io.in(roomNum).socketsLeave(roomNum);
+      // }
       const updateUsers =
         users.length >= 2
           ? users.filter((user) => user.username !== username)
