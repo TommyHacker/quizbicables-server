@@ -9,7 +9,12 @@ app.use(express.json());
 app.use(cors());
 
 app.get('/', (req, res) => {
-	res.send('server is open');
+	try {
+		res.send('server is open');
+	} catch (err) {
+		console.log(err);
+	}
 });
+app.listen(3000, () => console.log('server, 3000'));
 
 module.exports = app;
