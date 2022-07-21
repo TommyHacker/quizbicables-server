@@ -102,14 +102,19 @@ io.on("connection", async (socket) => {
       io.to(roomNum).emit("increment_question");
     });
 
+    socket.on("leave_room", ({ data }) => {
+      console.log(username, "left the room");
+      socket.leave(roomNum);
+    });
+
     socket.on("disconnect", async (socket) => {
       console.log("client disconnected");
       // update the current amount of users
       amounts = await io.in(roomNum).fetchSockets();
       console.log(amounts.length, "left in room");
       // if (amounts.length == 0) {
-        // console.log("removing room");
-        // io.in(roomNum).socketsLeave(roomNum);
+      // console.log("removing room");
+      // io.in(roomNum).socketsLeave(roomNum);
       // }
       const updateUsers =
         users.length >= 2
