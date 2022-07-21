@@ -6,7 +6,7 @@ const server = http.createServer(app);
 const port = process.env.port || 4040;
 const io = new Server(server, {
 	cors: {
-		origin: 'http://localhost:8080',
+		origin: process.env.CLIENT_URL || 'http://localhost:8080',
 		methods: ['GET', 'POST'],
 	},
 });
@@ -134,7 +134,7 @@ io.on('connection', async (socket) => {
 	});
 });
 
-server.listen(4041, () => console.log('socket server open: 4041'));
+server.listen(port, () => console.log('socket server open:', port));
 
 // app.listen(port, () => console.log(`server : ${port}`));
 
