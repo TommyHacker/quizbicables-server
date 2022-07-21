@@ -3,7 +3,7 @@ const roomsList = [];
 const { Server } = require('socket.io');
 const http = require('http');
 const server = http.createServer(app);
-const port = process.env.port || 4040;
+const port = process.env.PORT || 4040;
 const io = new Server(server, {
 	cors: {
 		origin: process.env.CLIENT_URL || 'http://localhost:8080',
