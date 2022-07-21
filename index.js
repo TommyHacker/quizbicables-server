@@ -25,7 +25,7 @@ io.on("connection", async (socket) => {
 
   // connect user to chosen room
   socket.on("join_room", async ({ roomNumber, username, isHost, score }) => {
-    let name = username;
+    // let name = username;
     let roomNum = Number(roomNumber);
     await socket.join(roomNum);
 
@@ -102,19 +102,14 @@ io.on("connection", async (socket) => {
       io.to(roomNum).emit("increment_question");
     });
 
-    // when a user disconnects
-    // questionIndex + 1
-    //     question
-    //     options
-    //
     socket.on("disconnect", async (socket) => {
       console.log("client disconnected");
       // update the current amount of users
       amounts = await io.in(roomNum).fetchSockets();
       console.log(amounts.length, "left in room");
       // if (amounts.length == 0) {
-      //   console.log("removing room");
-      //   io.in(roomNum).socketsLeave(roomNum);
+        // console.log("removing room");
+        // io.in(roomNum).socketsLeave(roomNum);
       // }
       const updateUsers =
         users.length >= 2
