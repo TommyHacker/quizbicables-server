@@ -53,7 +53,7 @@ io.on('connection', async (socket) => {
 		io.in(roomNum).emit('players', { data: playersInThisRoom });
 
 		// socket.on('giveAnswer', ({ data }) => {
-			// console.log(data);
+		// console.log(data);
 		// });
 		// get the users answer and send it back to all connected clients.
 		socket.on('answer', async (data) => {
@@ -61,7 +61,7 @@ io.on('connection', async (socket) => {
 		});
 		io.to(roomNumber).emit(`player_choice`, { data: 'something' });
 
-		socket.on('update_score',  (data) => {
+		socket.on('update_score', (data) => {
 			// console.log("this is the update score data", data);
 			let tempScoreArr = [];
 			playersInThisRoom.map((el) => {
@@ -73,7 +73,7 @@ io.on('connection', async (socket) => {
 					tempScoreArr.push(el);
 				}
 			});
-			playersInThisRoom = await tempScoreArr;
+			playersInThisRoom = tempScoreArr;
 			io.to(roomNum).emit('players', { data: playersInThisRoom });
 		});
 
