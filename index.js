@@ -40,7 +40,7 @@ io.on('connection', async (socket) => {
 		users = tempArr;
 		// console.log("updated users", users);
 
-		io.to(roomNum).emit('players', { data: playersInThisRoom });
+		// io.to(roomNum).emit('players', { data: playersInThisRoom });
 		// get the amount of current users connected.
 		let amounts = await io.in(roomNum).fetchSockets();
 		// console.log(amounts.length);
@@ -52,16 +52,16 @@ io.on('connection', async (socket) => {
 		console.log(users);
 		io.in(roomNum).emit('players', { data: playersInThisRoom });
 
-		socket.on('giveAnswer', ({ data }) => {
+		// socket.on('giveAnswer', ({ data }) => {
 			// console.log(data);
-		});
+		// });
 		// get the users answer and send it back to all connected clients.
 		socket.on('answer', async (data) => {
 			// console.log(data);
 		});
 		io.to(roomNumber).emit(`player_choice`, { data: 'something' });
 
-		socket.on('update_score', (data) => {
+		socket.on('update_score',  (data) => {
 			// console.log("this is the update score data", data);
 			let tempScoreArr = [];
 			playersInThisRoom.map((el) => {
@@ -73,8 +73,8 @@ io.on('connection', async (socket) => {
 					tempScoreArr.push(el);
 				}
 			});
-			playersInThisRoom = tempScoreArr;
-			io.to(roomNum).emit('players', { data: users });
+			playersInThisRoom = await tempScoreArr;
+			io.to(roomNum).emit('players', { data: playersInThisRoom });
 		});
 
 		socket.on('start_game', () => {
@@ -105,6 +105,7 @@ io.on('connection', async (socket) => {
 
 		socket.on('leave_room', ({ data }) => {
 			console.log(username, 'left the room');
+			socket.emit('reset_yourself');
 			socket.leave(roomNum);
 		});
 
