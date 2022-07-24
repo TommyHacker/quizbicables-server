@@ -65,7 +65,6 @@ io.on('connection', async (socket) => {
 
 		socket.on('update_score', async ({ data }) => {
 			const newPlayersList = await data;
-			console.log('correct answer,', data);
 			// send the updated score to all players in this room
 			io.to(roomNum).emit('players', { data });
 		});
