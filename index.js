@@ -12,131 +12,122 @@ const io = new Server(server, {
 });
 
 // when a socket is opened / connected
-let users = [''];
-io.on('connection', async (socket) => {
-	console.log('client connected!', socket.id);
-	socket.on('message', ({ messageText }) => {
-		// console.log(messageText);
-		socket.emit('message', { data: messageText });
-	});
-	socket.emit('message', { data: 'Connected to socket.' });
 
-	// so we can give the current users info to each user as they join
+// globally store users connected users list.
+let users = [''];
+
+// connect to game
+io.on('connection', async (socket) => {
+	// tell client that it has connected.
+	socket.emit('message', { data: 'Connected to socket.' });
+	console.log(socket.id, ' connected');
 
 	// connect user to chosen room
 	socket.on('join_room', async ({ roomNumber, username, isHost, score }) => {
-		// let name = username;
+		// convert room number string back to INT
 		let roomNum = Number(roomNumber);
+		// wait for the user too be connected to room
 		await socket.join(roomNum);
 
+		// Get users currently in this room
+		const updateRoomUsers = async (data) => {
+			let update;
+			update = await data.filter((user) => user.roomNumber == roomNum);
+			return update;
+		};
+
 		let tempArr;
+
 		const updatePlayersData = { roomNumber: roomNum, username, isHost, score };
+
+		// first client state user will return "" , so ignore that index.
 		users[0] === ''
 			? (tempArr = [updatePlayersData])
-			: (tempArr = [...users, updatePlayersData]);
-		let playersInThisRoom = tempArr.filter(
-			(user) => user.roomNumber === roomNum
-		);
-		users = tempArr;
-		// console.log("updated users", users);
+			: // if it isnt there, other users have replaced it, so append new user
+			  (tempArr = [...users, updatePlayersData]);
 
-		// io.to(roomNum).emit('players', { data: playersInThisRoom });
-		// get the amount of current users connected.
-		let amounts = await io.in(roomNum).fetchSockets();
-		// console.log(amounts.length);
-		io.in(roomNum).emit('players_count', { data: amounts.length });
+		// return users only in this room from global users list.
+		let playersInThisRoom = await updateRoomUsers(tempArr);
+
+		// update global users with tempArr
+		users = tempArr;
+
+		// send message update when new user joins the room
 		io.in(roomNum).emit('message', {
 			data: `user ${username} Connected to room ${roomNum}`,
 		});
 
-		console.log(users);
+		// send list of only players in this particular room
 		io.in(roomNum).emit('players', { data: playersInThisRoom });
 
-		// socket.on('giveAnswer', ({ data }) => {
-		// console.log(data);
-		// });
 		// get the users answer and send it back to all connected clients.
-		socket.on('answer', async (data) => {
-			// console.log(data);
-		});
-		io.to(roomNumber).emit(`player_choice`, { data: 'something' });
+		socket.on('answer', async (data) => {});
 
-		socket.on('update_score', (data) => {
-			// console.log("this is the update score data", data);
-			let tempScoreArr = [];
-			playersInThisRoom.map((el) => {
-				if (el.username == data.username) {
-					console.log(`updating ${el.username}'s score to ${score}`);
-					el.score = data.score;
-					tempScoreArr.push(el);
-				} else {
-					tempScoreArr.push(el);
-				}
-			});
-			playersInThisRoom = tempScoreArr;
-			io.to(roomNum).emit('players', { data: playersInThisRoom });
+		socket.on('update_score', async ({ data }) => {
+			const newPlayersList = await data;
+			console.log('correct answer,', data);
+			// send the updated score to all players in this room
+			io.to(roomNum).emit('players', { data });
 		});
 
+		// trigger start game for all users in this room
 		socket.on('start_game', () => {
 			io.to(roomNum).emit('start_game');
-			console.log('started game for users in ' + roomNum);
 		});
 
+		// pass quiz data from host to players.
 		socket.on('setup_quiz', ({ data }) => {
 			if (data[0].category) {
-				console.log('setup data', data.length);
 				io.to(roomNum).emit('setup_quiz', { data, howMany: data.length });
 			}
 		});
 
+		// let all users know that this user has taken their turn
 		socket.on('turn_taken', async ({ data }) => {
-			console.log('turns taken data:', data + 1);
-			console.log('players in this room:', playersInThisRoom.length);
 			io.to(roomNum).emit('turns_logged', { data: data + 1 });
 		});
+
+		// all turns taken, new question appears, reset turns taken.
 		socket.on('reset_turns', () => {
 			io.to(roomNum).emit('reset', { data: 0 });
 		});
 
+		// all turns taken, let everyone know to go to next question
 		socket.on('next_question', () => {
-			console.log('next question triggered.');
 			io.to(roomNum).emit('increment_question');
 		});
 
-		socket.on('leave_room', ({ data }) => {
-			console.log(username, 'left the room');
+		// player has left the room
+		socket.on('leave_room', async ({ data }) => {
+			let tempArr = [];
+			const result = await playersInThisRoom.filter(
+				(player) => player.username !== data
+			);
+			playersInThisRoom = await result;
+			// trigger redux state reset.
 			socket.emit('reset_yourself');
+			// remove player socket from room socket
 			socket.leave(roomNum);
 		});
 
+		// when a socket disconnects
 		socket.on('disconnect', async (socket) => {
-			console.log('client disconnected');
-			// update the current amount of users
-			amounts = await io.in(roomNum).fetchSockets();
-			console.log(amounts.length, 'left in room');
-			// if (amounts.length == 0) {
-			// console.log("removing room");
-			// io.in(roomNum).socketsLeave(roomNum);
-			// }
-			const updateUsers =
-				users.length >= 2
-					? users.filter((user) => user.username !== username)
-					: [''];
-			users = updateUsers;
+			// filter out this.socket where the disconnect came from and return it to the rest of the users.
+			const removeUser = () => {
+				return playersInThisRoom.filter(
+					(connection) => connection.username !== username
+				);
+			};
+			playersInThisRoom = removeUser();
 
 			io.to(roomNum).emit('players', { data: playersInThisRoom });
+
 			io.to(roomNum).emit('message', { data: `${username} disconnected.` });
-			// send the new amount of users to every client in this room
-			io.to(roomNum).emit('players_roundup', { players: amounts.length });
 		});
 	});
-	socket.on('disconnect', () => {
-		console.log('user disconnected.');
-	});
+
+	// socket has disconnected from entire server.
+	socket.on('disconnect', () => {});
 });
 
 server.listen(port, () => console.log('socket server open:', port));
-
-// app.listen(port, () => console.log(`server : ${port}`));
-
-// on react front-end install socket.io-client
